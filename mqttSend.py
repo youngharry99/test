@@ -46,8 +46,9 @@ RUN_TIME        =   20
 message_buff = queue.Queue()
 start_time = 0
 
-# 定义一个回调函数
+
 def on_connect(client, userdata, flags, rc):
+    # 连接回调函数
     print("Connected with result code " + str(rc))
     if rc == 0:
         print("Connect MQTT Server Success")
@@ -56,12 +57,14 @@ def on_connect(client, userdata, flags, rc):
     elif rc == 4:
         print("User name or password wrong")
 
-# 订阅回调函数
+
 def on_subscribe(client, userdata, mid, grated_qos, properties=None):
+    # 订阅回调函数
     print("subscribe: " + subTopic)
 
-# 消息接收的回调函数
+
 def on_message(client, userdata, msg):
+    # 消息接收的回调函数
     payload = json.loads(msg.payload)
     #print("Received Message: " , payload)
     try:
@@ -77,15 +80,10 @@ def on_message(client, userdata, msg):
         if not message_buff.empty():
                 print('engine,stamp: ', message_buff.get())
         #print("Received Message: " , message_buff.get())
-'''
-        global start_time
-        send_time = time.time()
-        elapsed_time = send_time - start_time
-        print(f"Message sent to IV100 in {elapsed_time} seconds")
-'''
 
-# 发布消息回调函数
+
 def on_publish(client, userdata, mid):
+    # 发布消息回调函数
     print("Message Send To MQTT")
 
 
@@ -93,12 +91,15 @@ def on_publish(client, userdata, mid):
 def get_car_reporting_data():
     client.publish(topic, '4,2,15')     #车辆信息批量上报(0x0F)
 
-#发送主题消息
-def publish_message(des_Topic, cmd = 'C7'):
+    send_time = time.time()
+    print('stamp:', send_time, '4,2,15')
+
+def publish_message(des_Topic, cmd = 'C6'):
+    #发送主题消息
     '''
     publish messages to des_Topic
     @des_Topic: 发布主题
-    @cmd:       命令,默认C7 鸣车
+    @cmd:       命令,默认C6 闪灯
     '''
     paylad = '5,3,1677235643,' + str(random.randint(1000, 3000)) + ',34383038,' + cmd
     client.publish(des_Topic, paylad)
@@ -127,33 +128,62 @@ def set_Test_Logic(interval_time, run_time):
     INTERVAL_TIME   = interval_time
     RUN_TIME        = run_time
 
+
 def test_start():
     global RUN_TIME
-    while RUN_TIME > 0:
-        publish_message(topic, 'C18')
-        time.sleep(1)
-        RUN_TIME = RUN_TIME - 0.2
+    global INTERVAL_TIME
+    print("Test Start with----" + "运行时间: ", RUN_TIME, " 间隔时间: ", INTERVAL_TIME)
+    #启动测试
+    while True:
+
+        try:
+            time_count = 0
+            #下发启动命令（闪灯）
+            publish_message(topic, 'C6')
+            print("启动-----------------------------")
+            time.sleep(200/1000)        #延时200ms,确保终端响应                        
+            while time_count < RUN_TIME:
+                time.sleep(2)
+                #获取车辆信息数据
+                get_car_reporting_data()
+                time_count = time_count + 2
+                print("获取数据 ","第: ", time_count, "s")
+
+            time.sleep(1)        #延时1s,确保处理完响应
+            time_count = 0
+
+            #间隔测试
+            #下发断开命令（鸣车）
+            publish_message(topic, 'C7')
+            print("关闭-----------------------------")
+            time.sleep(200/1000)        #延时200ms,确保终端响应
+            while time_count < INTERVAL_TIME:
+                time.sleep(2)
+                #获取车辆信息数据
+                get_car_reporting_data()
+                time_count = time_count + 2
+                print("获取数据 ","第: ", time_count, "s")
+
+            time.sleep(1)        #延时1s,确保处理完响应
+
+        except Exception as result:
+            print(result)
+            
 
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
 if __name__ == '__main__':
     clinet_Init()
-    client.loop_start()
-    set_Test_Logic(20, 3.0)
-    publish_message(topic, 'C16')
 
     # 循环处理网络流量和消息回调
-    #test_start()
-    #while True:
-        #pass
-        # 记录开始发送消息的时间戳
-        #start_time = time.time()
-        #publish_message(topic, 'C6')
+    client.loop_start()
 
-        #get_car_reporting_data()
+    time.sleep(2)
+    #设置测试逻辑
+    set_Test_Logic(20, 6.0)
 
-        #time.sleep(0.5)
-        #break
+    #开始测试
+    test_start()
 
     client.loop_stop()
 
