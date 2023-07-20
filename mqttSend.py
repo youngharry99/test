@@ -26,7 +26,7 @@ import time
 import queue
 
 #配置信息
-sn              = 'B2D2E00075'                                      #终端SN号
+sn              = 'B4B2E0009E'                                      #终端SN号
 broker          = 'mqtt-alpha.smart-iov.net'                        #测试网
 port            = 8801                                              #端口
 topic           = 'S' + sn                                          #平台发布Topic
@@ -116,7 +116,7 @@ def clinet_Init():
     client.connect(broker, port, 60)    #连接MQTT服务器
 
 
-def set_Test_Logic(interval_time, run_time, record_file: str):
+def set_Test_Logic(interval_time, run_time):
     ''' 设置测试逻辑.
         interval_time:   间隔时间S   默认60 s.\n
         run_time:       运行时间S   默认20 s.\n
@@ -128,25 +128,31 @@ def set_Test_Logic(interval_time, run_time, record_file: str):
     RUN_TIME        = run_time
 
 def test_start():
-
-    for i in range(RUN_TIME):
+    global RUN_TIME
+    while RUN_TIME > 0:
+        publish_message(topic, 'C18')
         time.sleep(1)
+        RUN_TIME = RUN_TIME - 0.2
 
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
 if __name__ == '__main__':
     clinet_Init()
-    # 循环处理网络流量和消息回调
     client.loop_start()
+    set_Test_Logic(20, 3.0)
+    publish_message(topic, 'C16')
 
-    while True:
+    # 循环处理网络流量和消息回调
+    #test_start()
+    #while True:
+        #pass
         # 记录开始发送消息的时间戳
         #start_time = time.time()
-        publish_message(topic, 'C6')
+        #publish_message(topic, 'C6')
 
-        get_car_reporting_data()
+        #get_car_reporting_data()
 
-        time.sleep(1)
+        #time.sleep(0.5)
         #break
 
     client.loop_stop()
