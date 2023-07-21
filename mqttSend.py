@@ -26,7 +26,7 @@ import time
 import datetime
 import os
 import csv
-
+import dingtalk_robot as ding
 
 
 
@@ -74,9 +74,12 @@ def save_data_csv(data : list, csv_file):
         writer = csv.writer(file)
         writer.writerow(data)
 
+warning_flag = 1
 def on_message(client, userdata, msg):
     # 消息接收的回调函数
     # 解析
+    global warning_flag
+
     payload = json.loads(msg.payload)
     try:
         #提取数据
@@ -97,6 +100,9 @@ def on_message(client, userdata, msg):
             result = '正常'
         else:
             result = '异常'
+            if(warning_flag == 1):
+                ding.warning_bot(time_str= time, status = '异常')
+                warning_flag = 0
 
         data = [time, command, engine, result]
         print('[IV100] '+ time + " engine: ", engine, " result: ", result)
@@ -151,7 +157,8 @@ def test_start(run_time = 20, interval_time = 60, count = None):
         count:          测试次数    默认一直测试\n
         record_file:  记录文件路径.
         '''
-
+    global warning_flag
+    i = 1
     # 判断文件是否存在
     if not os.path.exists(csv_file):
         # 创建CSV文件
@@ -211,6 +218,11 @@ def test_start(run_time = 20, interval_time = 60, count = None):
         except Exception as result:
             print(result)
 
+        i = i + 1
+        if i == 5:
+            i = 1
+            warning_flag = 1
+
 
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
@@ -221,7 +233,6 @@ if __name__ == '__main__':
     client.loop_start()
     time.sleep(2)
     #开始测试
-    test_start(run_time = 20,interval_time =300)
-
+    test_start(run_time = 20,interval_time =280)
+    #publish_message(topic,'C6')
     client.loop_stop()
-
