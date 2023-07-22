@@ -29,8 +29,6 @@ import csv
 import dingtalk_robot as ding
 
 
-
-
 #配置信息
 sn              = 'B2D2E00075'                                      #终端SN号
 broker          = 'mqtt-alpha.smart-iov.net'                        #测试网
@@ -48,8 +46,9 @@ mqttPassword    = "18cbd2b9800.aca5bc82c4ed053e9b6bed3a785e756a"
 '''
 # CSV文件路径
 csv_file = 'test_data.csv'
+warning_enable_flag = 1     #可提醒标志
+status_push_flag    = 0     #状态推送标志
 
-start_time = 0
 def on_connect(client, userdata, flags, rc):
     # 连接回调函数
     print("Connected with result code " + str(rc))
@@ -74,7 +73,8 @@ def save_data_csv(data : list, csv_file):
         writer = csv.writer(file)
         writer.writerow(data)
 
-warning_flag = 1
+
+
 def on_message(client, userdata, msg):
     # 消息接收的回调函数
     # 解析
@@ -85,11 +85,10 @@ def on_message(client, userdata, msg):
         #提取数据
         #获取ACC状态
         engine = payload['informations'][1]['value']['engine']
-        collect_time_stamp = payload['informations'][1]['value']['collect_time']
-
+        collect_time_stamp = payload['informations'][1]['value']['collect_time']    #获取时间戳
         #计算时间
         dt = datetime.datetime.fromtimestamp(collect_time_stamp)
-        time = str(dt.time())
+        date_time_str = dt.strftime("%Y-%m-%d %H:%M:%S")
 
         if userdata == 1:
             command = '启动'
@@ -100,12 +99,18 @@ def on_message(client, userdata, msg):
             result = '正常'
         else:
             result = '异常'
-            if(warning_flag == 1):
-                ding.warning_bot(time_str= time, status = '异常')
-                warning_flag = 0
+            if(warning_enable_flag == 1):
+                ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,status = result, type=-1)
+                warning_enable_flag = 0
 
-        data = [time, command, engine, result]
-        print('[IV100] '+ time + " engine: ", engine, " result: ", result)
+        #定时推送消息
+        if (status_push_flag == 1):
+            ding.warning_bot(sn= sn, time_str=date_time_str, status=result, type= 1)
+            status_push_flag = 0
+            print("已推送状态信息到钉钉")
+
+        data = [date_time_str, command, engine, result]
+        print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
         save_data_csv(data, csv_file)
 
     except Exception as result:
@@ -157,8 +162,11 @@ def test_start(run_time = 20, interval_time = 60, count = None):
         count:          测试次数    默认一直测试\n
         record_file:  记录文件路径.
         '''
-    global warning_flag
+    global warning_enable_flag
     i = 1
+    global status_push_flag
+    status_push_time = 1
+
     # 判断文件是否存在
     if not os.path.exists(csv_file):
         # 创建CSV文件
@@ -218,16 +226,28 @@ def test_start(run_time = 20, interval_time = 60, count = None):
         except Exception as result:
             print(result)
 
-        i = i + 1
-        if i == 5:
-            i = 1
-            warning_flag = 1
+        if(warning_enable_flag == 0):
+            if i == 4:                      #(run_time + interval_time)*4 s后允许继续发送警告
+                i = 1
+                warning_enable_flag = 1     #允许通知
+            else:
+                i = i + 1
+        
+        
+        if(status_push_time == 36):         #(run_time + interval_time)*36 s后允许自动推送状态
+            status_push_time = 1
+            status_push_flag = 1    #开启推送
+        else:
+            status_push_time = status_push_time + 1 
+
+
+        
 
 
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
 if __name__ == '__main__':
-    clinet_Init()
+    #clinet_Init()
 
     # 循环处理网络流量和消息回调
     client.loop_start()
