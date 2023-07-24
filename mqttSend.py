@@ -103,25 +103,25 @@ def on_message(client, userdata, msg):
             result = '正常'
         else:
             result = '异常'
-            if(warning_enable_flag == 1):
-                ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,status = result, type=-1)
-                warning_enable_flag = 0
-
-                print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
-                print("异常退出")
-
-                client.disconnect()     #断开连接
-                sys.exit()              #退出程序
 
         #定时推送消息
         if (status_push_flag == 1):
-            ding.warning_bot(sn= sn, time_str=date_time_str, status=result, type= 1)
+            ding.warning_bot(sn= sn, time_str=date_time_str, command= command, ACC_status=engine, status=result, type= 1)
             status_push_flag = 0
             print("已推送状态信息到钉钉")
 
         data = [date_time_str, command, engine, result]
-        print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
         save_data_csv(data, csv_file)
+        print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
+
+        if userdata != engine:
+            #if(warning_enable_flag == 1):
+            #warning_enable_flag = 0
+            ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,ACC_status=engine, status = result, type=-1)   #钉钉推送
+            
+            print("异常退出")
+            client.disconnect()     #断开连接
+            sys.exit()              #退出程序
 
     except Exception as result:
         #print(result)
