@@ -27,7 +27,7 @@ import datetime
 import os
 import csv
 import dingtalk_robot as ding
-
+import sys
 
 #配置信息
 sn              = 'B2D2E00075'                                      #终端SN号
@@ -44,8 +44,12 @@ userName        = 'test10'
 client_id       = "app_test10"
 mqttPassword    = "18cbd2b9800.aca5bc82c4ed053e9b6bed3a785e756a"
 '''
-# CSV文件路径
-csv_file = 'test_data.csv'
+
+# CSV文件路径,
+current_time = datetime.datetime.now()
+timestamp = current_time.strftime("%Y-%m-%dT%H_%M_%S")
+csv_file = f"test_data_{timestamp}.csv"
+
 warning_enable_flag = 1     #可提醒标志
 status_push_flag    = 0     #状态推送标志
 
@@ -69,7 +73,7 @@ def save_data_csv(data : list, csv_file):
     '''
         data: 数据列表
         csv_file: 文件路径'''
-    with open(csv_file, 'a', newline='') as file:
+    with open(csv_file, 'a', newline='', encoding= "utf-8") as file:
         writer = csv.writer(file)
         writer.writerow(data)
 
@@ -78,7 +82,7 @@ def save_data_csv(data : list, csv_file):
 def on_message(client, userdata, msg):
     # 消息接收的回调函数
     # 解析
-    global warning_flag
+    global warning_enable_flag
 
     payload = json.loads(msg.payload)
     try:
@@ -103,6 +107,12 @@ def on_message(client, userdata, msg):
                 ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,status = result, type=-1)
                 warning_enable_flag = 0
 
+                print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
+                print("异常退出")
+
+                client.disconnect()     #断开连接
+                sys.exit()              #退出程序
+
         #定时推送消息
         if (status_push_flag == 1):
             ding.warning_bot(sn= sn, time_str=date_time_str, status=result, type= 1)
@@ -119,11 +129,11 @@ def on_message(client, userdata, msg):
     #print('[IV100] '+ 'msg: ', payload)
 
 
-
+'''
 def on_publish(client, userdata, mid):
     # 发布消息回调函数
     print("Message Send To MQTT")
-
+'''
 
 #获取车辆上报数据
 def get_car_reporting_data():
@@ -160,7 +170,6 @@ def test_start(run_time = 20, interval_time = 60, count = None):
         interval_time:   间隔时间S   默认60 s.\n
         run_time:       运行时间S   默认20 s.\n
         count:          测试次数    默认一直测试\n
-        record_file:  记录文件路径.
         '''
     global warning_enable_flag
     i = 1
@@ -170,10 +179,10 @@ def test_start(run_time = 20, interval_time = 60, count = None):
     # 判断文件是否存在
     if not os.path.exists(csv_file):
         # 创建CSV文件
-        with open(csv_file, 'w', newline='') as file:
+        with open(csv_file, 'w', newline='',encoding="utf-8") as file:
             writer = csv.writer(file)
             # 写入CSV文件的表头
-            writer.writerow(["Time", "控制", "ACC_Status", "Result"])
+            writer.writerow(["Time", "下发命令", "ACC_Status", "Result"])
         print("CSV文件已创建")
     else:
         print("CSV文件已存在")
@@ -191,15 +200,14 @@ def test_start(run_time = 20, interval_time = 60, count = None):
 
     while True:
         try:
-            time_count = 0
-            time.sleep(2)        #延时2s,确保处理完响应
 
-            #下发启动命令（闪灯）
+            time_count = 0
+            #下发启动命令（闪灯）：1
             client.user_data_set(1)
             publish_message(topic, 'C6')
             print("---------------------启动-----------------------------")
 
-            time.sleep(200/1000)        #延时200ms,确保终端响应
+            #time.sleep(200/1000)        #延时200ms,确保终端响应
             while time_count < run_time:
                 time.sleep(run_sample_time)
                 #获取车辆信息数据
@@ -207,21 +215,23 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                 time_count = time_count + run_sample_time
                 print("获取数据 ","第: ", time_count, "s")
 
-            time_count = 0
             time.sleep(2)        #延时2s,确保处理完响应
-
+            
+            time_count = 0
             #间隔测试
-            #下发断开命令（鸣车）
+            #下发断开命令（鸣车）：0
             client.user_data_set(0)
             publish_message(topic, 'C7')
             print("---------------------关闭-----------------------------")
-            time.sleep(200/1000)        #延时200ms,确保终端响应
+            #time.sleep(200/1000)        #延时200ms,确保终端响应
             while time_count < interval_time:
                 time.sleep(interval_sample_time)
                 #获取车辆信息数据
                 get_car_reporting_data()
                 time_count = time_count + interval_sample_time
                 print("获取数据 ","第: ", time_count, "s")
+
+            time.sleep(2)        #延时2s,确保处理完响应
 
         except Exception as result:
             print(result)
@@ -241,18 +251,16 @@ def test_start(run_time = 20, interval_time = 60, count = None):
             status_push_time = status_push_time + 1 
 
 
-        
-
-
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
 if __name__ == '__main__':
-    #clinet_Init()
+    clinet_Init()
 
     # 循环处理网络流量和消息回调
     client.loop_start()
     time.sleep(2)
+
     #开始测试
-    test_start(run_time = 20,interval_time =280)
+    test_start(run_time = 20,interval_time = 20)
     #publish_message(topic,'C6')
     client.loop_stop()
