@@ -50,8 +50,8 @@ current_time = datetime.datetime.now()
 timestamp = current_time.strftime("%Y-%m-%dT%H_%M_%S")
 csv_file = f"test_data_{timestamp}.csv"
 
-warning_enable_flag = 1     #可提醒标志
-status_push_flag    = 0     #状态推送标志
+#warning_enable_flag = 1     #可提醒标志
+#status_push_flag    = 0     #状态推送标志
 
 def on_connect(client, userdata, flags, rc):
     # 连接回调函数
@@ -82,8 +82,8 @@ def save_data_csv(data : list, csv_file):
 def on_message(client, userdata, msg):
     # 消息接收的回调函数
     # 解析
-    global warning_enable_flag
-
+    #global warning_enable_flag
+    #global status_push_flag
     payload = json.loads(msg.payload)
     try:
         #提取数据
@@ -103,30 +103,31 @@ def on_message(client, userdata, msg):
             result = '正常'
         else:
             result = '异常'
-
+        '''
         #定时推送消息
         if (status_push_flag == 1):
             ding.warning_bot(sn= sn, time_str=date_time_str, command= command, ACC_status=engine, status=result, type= 1)
             status_push_flag = 0
             print("已推送状态信息到钉钉")
+        '''
 
         data = [date_time_str, command, engine, result]
-        save_data_csv(data, csv_file)
+        save_data_csv(data, csv_file)   #存储数据到文件中
         print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
-
+        #print('[IV100] '+ 'msg: ', payload)
         if userdata != engine:
             #if(warning_enable_flag == 1):
             #warning_enable_flag = 0
-            ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,ACC_status=engine, status = result, type=-1)   #钉钉推送
-            
-            print("异常退出")
-            client.disconnect()     #断开连接
-            sys.exit()              #退出程序
+            #钉钉推送
+            ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,ACC_status=engine, status = result, type=-1)
+            print("Exiting the program...")
+            client.loop_stop()          #停止后台线程
+            client.disconnect()         #与mqtt断开连接
+            os._exit(0)                 #线程中退出整个进程
 
-    except Exception as result:
-        #print(result)
+    except Exception as e:
+        #print(e)
         pass
-    #print('[IV100] '+ 'msg: ', payload)
 
 
 '''
@@ -163,18 +164,16 @@ def clinet_Init():
     client.on_subscribe = on_subscribe
     client.connect(broker, port, 60)    #连接MQTT服务器
 
-
-
 def test_start(run_time = 20, interval_time = 60, count = None):
     ''' 设置测试逻辑.
         interval_time:   间隔时间S   默认60 s.\n
         run_time:       运行时间S   默认20 s.\n
         count:          测试次数    默认一直测试\n
         '''
-    global warning_enable_flag
-    i = 1
-    global status_push_flag
-    status_push_time = 1
+    #global warning_enable_flag
+    #i = 1
+    #global status_push_flag
+    #status_push_time = 1
 
     # 判断文件是否存在
     if not os.path.exists(csv_file):
@@ -191,13 +190,16 @@ def test_start(run_time = 20, interval_time = 60, count = None):
     #启动测试
 
     #采样时间
+    '''
     if(run_time <= 10 or interval_time <= 10):
         run_sample_time =   2
         interval_time   =   2
     else:
         run_sample_time = run_time / 10
         interval_sample_time  = interval_time / 10
-
+    '''
+    run_sample_time = 2
+    interval_sample_time = 2
     while True:
         try:
 
@@ -216,7 +218,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                 print("获取数据 ","第: ", time_count, "s")
 
             time.sleep(2)        #延时2s,确保处理完响应
-            
+
             time_count = 0
             #间隔测试
             #下发断开命令（鸣车）：0
@@ -236,27 +238,28 @@ def test_start(run_time = 20, interval_time = 60, count = None):
         except Exception as result:
             print(result)
 
+        '''
         if(warning_enable_flag == 0):
             if i == 4:                      #(run_time + interval_time)*4 s后允许继续发送警告
                 i = 1
                 warning_enable_flag = 1     #允许通知
             else:
                 i = i + 1
-        
-        
+
+
         if(status_push_time == 36):         #(run_time + interval_time)*36 s后允许自动推送状态
             status_push_time = 1
             status_push_flag = 1    #开启推送
         else:
-            status_push_time = status_push_time + 1 
-
+            status_push_time = status_push_time + 1
+        '''
 
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
 if __name__ == '__main__':
     clinet_Init()
 
-    # 循环处理网络流量和消息回调
+    # 创建线程循环处理网络流量和消息回调
     client.loop_start()
     time.sleep(2)
 
