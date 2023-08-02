@@ -27,7 +27,7 @@ import datetime
 import os
 import csv
 import dingtalk_robot as ding
-
+import logging
 #配置信息
 sn              = 'B2D2E00075'                                      #终端SN号
 broker          = 'mqtt-alpha.smart-iov.net'                        #测试网
@@ -35,21 +35,26 @@ port            = 8801                                              #端口
 topic           = 'S' + sn                                          #平台发布Topic
 subTopic        = 'U/JSON/' + sn                                    #终端发布Topic
 comfirTopic     = 'C/JSON/' + sn                                    #终端确认Topic
+'''
 userName        = 'test08'                                          #测试平台用户名
 client_id       = 'app_test08'                                      #client_id
 mqttPassword    = '18cbd2b9800.82d7ea652dc12ebc4e61adda8763066c'    #测试平台密码
-
 '''
+
 userName        = 'test10'
 client_id       = "app_test10"
 mqttPassword    = "18cbd2b9800.aca5bc82c4ed053e9b6bed3a785e756a"
-'''
+
 
 # CSV文件路径,
 current_time = datetime.datetime.now()
 timestamp = current_time.strftime("%Y-%m-%dT%H_%M_%S")
 csv_file = f"test_data_{timestamp}.csv"
 
+#日志配置
+logging.basicConfig(filename='text.log',filemode='a',level=logging.DEBUG,
+                    format="%(asctime)s %(name)s %(levelname)s:%(message)s",
+                    datefmt="%Y-%M-%d %H:%M:%S")
 #warning_enable_flag = 1     #可提醒标志
 #status_push_flag    = 0     #状态推送标志
 
@@ -60,13 +65,14 @@ def on_connect(client, userdata, flags, rc):
         print("Connect MQTT Server Success")
         #订阅终端发布主题
         client.subscribe(subTopic)
+        client.subscribe(comfirTopic)
     elif rc == 4:
         print("User name or password wrong")
 
 
 def on_subscribe(client, userdata, mid, grated_qos, properties=None):
     # 订阅回调函数
-    print("subscribe: [subTopic, comfirTopic]")
+    print("subscribe success!")
 
 
 def save_data_csv(data : list, csv_file):
@@ -79,9 +85,11 @@ def save_data_csv(data : list, csv_file):
 
 flag = 0
 
+
 def on_comfir_message(client, userdata, msg):
-    payload = json.loads(msg.payload)
-    print('[IV100] '+ 'comfir msg: ', payload)
+    #终端确认信息处理
+    #存储终端确认信息日志信息
+    logging.info('[IV100]' + str(msg.payload))
 
 def on_message(client, userdata, msg):
     # 消息接收的回调函数
@@ -90,7 +98,7 @@ def on_message(client, userdata, msg):
     #global status_push_flag
     global flag
     payload = json.loads(msg.payload)
-    print('[IV100] '+ 'msg: ', payload)
+    #print('[IV100] '+ 'msg: ', payload)
 
     try:
         #提取数据
@@ -112,16 +120,18 @@ def on_message(client, userdata, msg):
         else:
             result = '异常'
 
+        '''
         #定时推送消息
         if (status_push_flag == 1):
             ding.warning_bot(sn= sn, time_str=date_time_str, command= command, ACC_status=engine, status=result, type= 1)
             status_push_flag = 0
             print("已推送状态信息到钉钉")
-
+        '''
 
         data = [date_time_str, command, engine, result]
         save_data_csv(data, csv_file)   #存储数据到文件中
-        print('[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
+        rec_time = datetime.datetime.now()
+        print(rec_time.strftime("%H:%M:%S") + '[IV100] '+ date_time_str + " engine: ", engine, " result: ", result)
         #print('[IV100] '+ 'msg: ', payload)
         if userdata != engine:
             flag = flag + 1
@@ -132,7 +142,7 @@ def on_message(client, userdata, msg):
             if flag == 1:
                 ding.warning_bot(sn= sn, time_str= date_time_str, command= command ,ACC_status=engine, status = result, type=-1)
                 print("Exiting the program...")
-                client.loop_stop()          #停止后台线程
+                client.loop_stop()          #停止后台线程监听
                 client.disconnect()         #与mqtt断开连接
                 os._exit(0)                 #线程中退出整个进程
 
@@ -144,7 +154,7 @@ def on_message(client, userdata, msg):
 '''
 def on_publish(client, userdata, mid):
     # 发布消息回调函数
-    print("Message Send To MQTT")
+    print(userdata,mid)
 '''
 
 #获取车辆上报数据
@@ -161,10 +171,13 @@ def publish_message(des_Topic, cmd = 'C6'):
     @cmd:       命令,默认C6 闪灯
     '''
     paylad = '5,3,1677235643,' + str(random.randint(1000, 3000)) + ',34383038,' + cmd
-    client.publish(des_Topic, paylad, qos=1)
-
+    result = client.publish(des_Topic, paylad, qos=1)
+    status = result[0]
     send_time = datetime.datetime.now()
-    print('[Client]' , send_time.strftime("%H:%M:%S") , "publish cmd: " + paylad)
+    if status == 0:
+        print('[Client]' , send_time.strftime("%H:%M:%S") , "publish cmd: " + paylad)
+    else:
+        print('[Client] Send Message Failed' , send_time.strftime("%H:%M:%S") , "publish cmd: " + paylad)
 
 
 def clinet_Init():
@@ -200,18 +213,10 @@ def test_start(run_time = 20, interval_time = 60, count = None):
 
     print("Test Start with----" + "运行时间: ", run_time, " 间隔时间: ", interval_time)
     #启动测试
-
-    #采样时间
-    '''
-    if(run_time <= 10 or interval_time <= 10):
-        run_sample_time =   2
-        interval_time   =   2
-    else:
-        run_sample_time = run_time / 10
-        interval_sample_time  = interval_time / 10
-    '''
     run_sample_time = 2
     interval_sample_time = 10
+
+
     while True:
         try:
 
@@ -221,7 +226,6 @@ def test_start(run_time = 20, interval_time = 60, count = None):
             publish_message(topic, 'C6')
             print("---------------------启动-----------------------------")
 
-            #time.sleep(200/1000)        #延时200ms,确保终端响应
             while time_count < run_time:
                 time.sleep(run_sample_time)
                 #获取车辆信息数据
@@ -237,7 +241,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
             client.user_data_set(0)
             publish_message(topic, 'C7')
             print("---------------------关闭-----------------------------")
-            #time.sleep(200/1000)        #延时200ms,确保终端响应
+
             while time_count < interval_time:
                 time.sleep(interval_sample_time)
                 #获取车辆信息数据
@@ -276,15 +280,14 @@ if __name__ == '__main__':
     time.sleep(2)
 
     #开始测试
-    #test_start(run_time = 20,interval_time = 280)
+    test_start(run_time = 20,interval_time = 280)
 
+
+    '''
     while True:
-        #get_car_reporting_data()
-        publish_message(topic, 'C7')    #下发控制命令
-        time.sleep(6)
-
-        publish_message(topic, 'C7')    #下发控制命令
-        time.sleep(6)
-
-    #publish_message(topic,'C6')
+        publish_message(topic,'C6')
+        time.sleep(5)
+        publish_message(topic,'C7')
+        time.sleep(5)
+        '''
     client.loop_stop()
