@@ -84,11 +84,17 @@ def save_data_csv(data : list, csv_file):
         writer.writerow(data)
 
 flag = 0
-
+CMD_SUCCESS_FLAG = False
 
 def on_comfir_message(client, userdata, msg):
     #终端确认信息处理
     #存储终端确认信息日志信息
+    global CMD_SUCCESS_FLAG
+    payload = json.loads(msg.payload)
+    if payload['result_code'] == "C6=1" or payload['result_code'] == "C7=1":
+        CMD_SUCCESS_FLAG = True
+    else:
+        CMD_SUCCESS_FLAG = False
     logging.info('[IV100]' + str(msg.payload))
 
 def on_message(client, userdata, msg):
@@ -215,7 +221,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
     #启动测试
     run_sample_time = 2
     interval_sample_time = 10
-
+    global CMD_SUCCESS_FLAG
 
     while True:
         try:
@@ -224,8 +230,12 @@ def test_start(run_time = 20, interval_time = 60, count = None):
             #下发启动命令（闪灯）：1
             client.user_data_set(1)
             publish_message(topic, 'C6')
+            while not CMD_SUCCESS_FLAG:
+                time.sleep(4.5)
+                #4.5秒没收到  重新发送
+                if CMD_SUCCESS_FLAG == False:
+                    publish_message(topic, 'C6')
             print("---------------------启动-----------------------------")
-
             while time_count < run_time:
                 time.sleep(run_sample_time)
                 #获取车辆信息数据
@@ -233,6 +243,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                 time_count = time_count + run_sample_time
                 print("获取数据 ","第: ", time_count, "s")
 
+            CMD_SUCCESS_FLAG == False
             time.sleep(2)        #延时2s,确保处理完响应
 
             time_count = 0
@@ -240,6 +251,11 @@ def test_start(run_time = 20, interval_time = 60, count = None):
             #下发断开命令（鸣车）：0
             client.user_data_set(0)
             publish_message(topic, 'C7')
+            while not CMD_SUCCESS_FLAG:
+                time.sleep(4.5)
+                #4.5秒没收到  重新发送
+                if CMD_SUCCESS_FLAG == False:
+                    publish_message(topic, 'C7')
             print("---------------------关闭-----------------------------")
 
             while time_count < interval_time:
@@ -249,6 +265,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                 time_count = time_count + interval_sample_time
                 print("获取数据 ","第: ", time_count, "s")
 
+            CMD_SUCCESS_FLAG == False
             time.sleep(2)        #延时2s,确保处理完响应
 
         except Exception as result:
