@@ -243,7 +243,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                 time_count = time_count + run_sample_time
                 print("获取数据 ","第: ", time_count, "s")
 
-            CMD_SUCCESS_FLAG == False
+            CMD_SUCCESS_FLAG = False
             time.sleep(2)        #延时2s,确保处理完响应
 
             time_count = 0
@@ -265,7 +265,7 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                 time_count = time_count + interval_sample_time
                 print("获取数据 ","第: ", time_count, "s")
 
-            CMD_SUCCESS_FLAG == False
+            CMD_SUCCESS_FLAG = False
             time.sleep(2)        #延时2s,确保处理完响应
 
         except Exception as result:
