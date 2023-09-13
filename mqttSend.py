@@ -35,16 +35,14 @@ port            = 8801                                              #端口
 topic           = 'S' + sn                                          #平台发布Topic
 subTopic        = 'U/JSON/' + sn                                    #终端发布Topic
 comfirTopic     = 'C/JSON/' + sn                                    #终端确认Topic
-'''
-userName        = 'test08'                                          #测试平台用户名
-client_id       = 'app_test08'                                      #client_id
-mqttPassword    = '18cbd2b9800.82d7ea652dc12ebc4e61adda8763066c'    #测试平台密码
-'''
+
+# userName        = 'test08'                                          #测试平台用户名
+# client_id       = 'app_test08'                                      #client_id
+# mqttPassword    = '18cbd2b9800.82d7ea652dc12ebc4e61adda8763066c'    #测试平台密码
 
 userName        = 'test10'
 client_id       = "app_test10"
 mqttPassword    = "18cbd2b9800.aca5bc82c4ed053e9b6bed3a785e756a"
-
 
 # CSV文件路径,
 current_time = datetime.datetime.now()
@@ -54,7 +52,7 @@ csv_file = f"test_data_{timestamp}.csv"
 #日志配置
 logging.basicConfig(filename='text.log',filemode='a',level=logging.DEBUG,
                     format="%(asctime)s %(name)s %(levelname)s:%(message)s",
-                    datefmt="%Y-%M-%d %H:%M:%S")
+                    datefmt="%Y-%m-%d %H:%M:%S")
 #warning_enable_flag = 1     #可提醒标志
 #status_push_flag    = 0     #状态推送标志
 
@@ -69,11 +67,9 @@ def on_connect(client, userdata, flags, rc):
     elif rc == 4:
         print("User name or password wrong")
 
-
 def on_subscribe(client, userdata, mid, grated_qos, properties=None):
     # 订阅回调函数
     print("subscribe success!")
-
 
 def save_data_csv(data : list, csv_file):
     '''
@@ -126,13 +122,6 @@ def on_message(client, userdata, msg):
         else:
             result = '异常'
 
-        '''
-        #定时推送消息
-        if (status_push_flag == 1):
-            ding.warning_bot(sn= sn, time_str=date_time_str, command= command, ACC_status=engine, status=result, type= 1)
-            status_push_flag = 0
-            print("已推送状态信息到钉钉")
-        '''
 
         data = [date_time_str, command, engine, result]
         save_data_csv(data, csv_file)   #存储数据到文件中
@@ -185,7 +174,6 @@ def publish_message(des_Topic, cmd = 'C6'):
     else:
         print('[Client] Send Message Failed' , send_time.strftime("%H:%M:%S") , "publish cmd: " + paylad)
 
-
 def clinet_Init():
     client.username_pw_set(username=userName, password=mqttPassword)    #set Username & passwprd
     client.on_connect = on_connect                                      #将回调函数指派给客户端实例
@@ -219,8 +207,9 @@ def test_start(run_time = 20, interval_time = 60, count = None):
 
     print("Test Start with----" + "运行时间: ", run_time, " 间隔时间: ", interval_time)
     #启动测试
-    run_sample_time = 2
-    interval_sample_time = 10
+
+    run_sample_time = 10        # 启动时采样时间
+    interval_sample_time = 10   # 关闭时采样时间
     global CMD_SUCCESS_FLAG
 
     while True:
@@ -237,12 +226,13 @@ def test_start(run_time = 20, interval_time = 60, count = None):
                     publish_message(topic, 'C6')
             print("---------------------启动-----------------------------")
             while time_count < run_time:
-                time.sleep(run_sample_time)
+
                 #获取车辆信息数据
                 get_car_reporting_data()
-                time_count = time_count + run_sample_time
-                print("获取数据 ","第: ", time_count, "s")
 
+                print("获取数据 ","第: ", time_count, "s")
+                time.sleep(run_sample_time)
+                time_count = time_count + run_sample_time
             CMD_SUCCESS_FLAG = False
             time.sleep(2)        #延时2s,确保处理完响应
 
@@ -259,33 +249,19 @@ def test_start(run_time = 20, interval_time = 60, count = None):
             print("---------------------关闭-----------------------------")
 
             while time_count < interval_time:
-                time.sleep(interval_sample_time)
+
                 #获取车辆信息数据
                 get_car_reporting_data()
-                time_count = time_count + interval_sample_time
-                print("获取数据 ","第: ", time_count, "s")
 
+                print("获取数据 ","第: ", time_count, "s")
+                time.sleep(interval_sample_time)
+                time_count = time_count + interval_sample_time
             CMD_SUCCESS_FLAG = False
             time.sleep(2)        #延时2s,确保处理完响应
 
         except Exception as result:
             print(result)
 
-        '''
-        if(warning_enable_flag == 0):
-            if i == 4:                      #(run_time + interval_time)*4 s后允许继续发送警告
-                i = 1
-                warning_enable_flag = 1     #允许通知
-            else:
-                i = i + 1
-
-
-        if(status_push_time == 36):         #(run_time + interval_time)*36 s后允许自动推送状态
-            status_push_time = 1
-            status_push_flag = 1    #开启推送
-        else:
-            status_push_time = status_push_time + 1
-        '''
 
 client = mqtt.Client(client_id)     #创建mqtt客户端
 
@@ -297,8 +273,8 @@ if __name__ == '__main__':
     time.sleep(2)
 
     #开始测试
-    test_start(run_time = 20,interval_time = 280)
-
+    #test_start(run_time = 240,interval_time = 60)
+    publish_message(topic,'C6')
 
     '''
     while True:
